@@ -1,4 +1,5 @@
 import pygame
+import os
 from pygame.locals import *
 
 iconPath = 'icons'
@@ -56,7 +57,10 @@ class Button:
           self.iconBg = i
           break
 
-
+os.putenv('SDL_VIDEODRIVER', 'fbcon')
+os.environ('SDL_FBDEV', '/dev/fb1')
+os.environ('SDL_MOUSEDEV', '/dev/input/touchscreen')
+os.environ('SDL_MOUSEDRV', 'TSLIB')
 
 pygame.init()
 pygame.mouse.set_visible(False)
