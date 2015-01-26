@@ -59,16 +59,17 @@ class Button:
 
 
 pygame.init()
-#pygame.mouse.set_visible(False)
-#screen = pygame.display.set_mode((0,0), pygame.FULLSCREEN)
-screen = pygame.display.set_mode([320,240])
+pygame.mouse.set_visible(False)
+screen = pygame.display.set_mode((0,0), pygame.FULLSCREEN)
+#screen = pygame.display.set_mode([320,240])
 
 continuer = 1
 
 buttons = [Button((0,0,30,30), color=100, icon=Icon('1')),
            Button((290,0,30,30), color=100, icon=Icon('2')),
            Button((0,210,30,30), color=100, icon=Icon('3')),
-           Button((290,210,30,30), color=100, icon=Icon('4'))]
+           Button((290,210,30,30), color=100, icon=Icon('4')),
+           Button((135,95,50,50), color=100, icon=Icon('zizi'))]
 
 #Boucle infinie
 while continuer:
