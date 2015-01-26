@@ -58,9 +58,9 @@ class Button:
           break
 
 os.putenv('SDL_VIDEODRIVER', 'fbcon')
-os.environ('SDL_FBDEV', '/dev/fb1')
-os.environ('SDL_MOUSEDEV', '/dev/input/touchscreen')
-os.environ('SDL_MOUSEDRV', 'TSLIB')
+os.putenv('SDL_FBDEV', '/dev/fb1')
+os.putenv('SDL_MOUSEDEV', '/dev/input/touchscreen')
+os.putenv('SDL_MOUSEDRV', 'TSLIB')
 
 pygame.init()
 pygame.mouse.set_visible(False)
