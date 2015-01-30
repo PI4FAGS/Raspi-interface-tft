@@ -1,7 +1,13 @@
+DEBUG = True
 import pygame
 import os
 import json
 import datetime
+import time
+import atexit
+import threading
+if not DEBUG:
+  import picamera
 from pygame.locals import *
 
 class Settings:
@@ -37,6 +43,20 @@ class Settings:
     for k, d in enumerate(durations):
       if self.duration == d:
         return durations[(k + 1) % len(durations)]
+
+  def dstr_to_timedelta(self, value):
+    if 's' in value:
+      sec = int(value[:-1])
+      return datetime.timedelta(seconds=sec)
+    elif 'm' in value:
+      minu = int(value[:-1])
+      return datetime.timedelta(minutes=minu)
+    elif 'h' in value:
+      hour = int(value[:-1])
+      return datetime.timedelta(hours=hour)
+    elif 'j' in value:
+      day = int(value[:-1])
+      return datetime.timedelta(days=day)
       
 class Icon:
   def __init__(self, name):
@@ -91,6 +111,52 @@ class Button:
           self.iconBg = i
           break
 
+class GetOutOfLoop( Exception ):
+    pass
+
+class Recorder:
+  def __init__(self, interval, duration):
+    self.interval = interval
+    self.duration = duration
+    self.nb_photos = int(duration.total_seconds() / interval.total_seconds())
+    self.thread = None
+    self.stop = False
+  
+  def record(self):
+    print 'uh'
+    begining = datetime.datetime.now()
+    current_time = begining
+    time_next_photo = current_time + self.interval
+    current_index = 1
+    until = current_time + (self.interval * self.nb_photos)
+    value_recording_until = (font.render(until.strftime('%x %X'), 1, (255,255,255)), (60,10))
+    values[2][0] = value_recording_until
+    
+    value_recording_nbpic = (font.render(str(current_index) + "/" + str(self.nb_photos), 1, (255,255,255)), (80,30))
+    values[2][1] = value_recording_nbpic
+    print 'change'
+    try:
+      while current_index < self.nb_photos:
+        while current_time < time_next_photo:
+          if self.stop:
+            raise GetOutOfLoop  
+          time.sleep(1)
+          current_time = datetime.datetime.now()
+        print 'uh'
+        current_index += 1
+        time_next_photo = begining + (self.interval * current_index)
+        value_recording_nbpic = (font.render(str(current_index) + "/" + str(self.nb_photos), 1, (255,255,255)), (80,30))
+        values[2][1] = value_recording_nbpic
+      print 'end of tl normal'
+      global current_screen
+      current_screen = 1
+    except:
+      print 'end_of_tl by stop'
+
+  def stop_recording(self):
+    self.stop = True
+    
+
 # ------ callbacks ------
 def change_interval(value):
   global settings, value_interval, values
@@ -144,21 +210,30 @@ def change_settings():
   current_screen = 0
 
 def start_recording():
-  global current_screen
+  global current_screen, settings, recorder
   current_screen = 2
-  #TODO
+  dt = datetime.datetime.now()
+  os.makedirs(dt.strftime('%a-%d-%b_%X'))
+  tl_interval = settings.dstr_to_timedelta(settings.interval)
+  tl_duration = settings.dstr_to_timedelta(settings.duration)
+  if recorder is not None:
+    recorder.stop_recording()
+  recorder = Recorder(tl_interval, tl_duration)
+  t = threading.Thread(target=recorder.record)
+  recorder.thread = t
+  t.start()
 
 def stop_recording():
-  global current_screen
+  global current_screen, recorder
   current_screen = 1
-  #TODO
+  recorder.stop_recording()
 
-DEBUG = True
 iconPath = 'icons'
 settings = Settings()
 settings.load()
 
-current_screen = 2 # 0=settings, 1=preview, 2=recording
+current_screen = 0 # 0=settings, 1=preview, 2=recording
+recorder = None
 
 
 if not DEBUG:
@@ -202,12 +277,10 @@ value_preview_interval = (font.render(settings.interval, 1, (255,255,255)), (95,
 value_preview_duration = (font.render(settings.duration, 1, (255,255,255)), (95,30))
 value_preview_drive = (font.render(str(settings.push_to_drive), 1, (255,255,255)), (95,50))
 
-until = datetime.datetime(2015,4,8,12,50)
 label_recording_until = (font.render("until : ", 1, (255,255,255)), (10,10))
 label_recording_nbpic = (font.render("picture : ", 1, (255,255,255)), (10,30))
-#TODO
-value_recording_until = (font.render(until.strftime('%x %X'), 1, (255,255,255)), (60,10))
-value_recording_nbpic = (font.render("10/205", 1, (255,255,255)), (80,30))
+value_recording_until = (font.render("", 1, (255,255,255)), (60,10))
+value_recording_nbpic = (font.render("", 1, (255,255,255)), (80,30))
 
 labels=[[label_interval, label_duration, label_todrive, label_settings],
         [label_preview_interval, label_preview_duration, label_preview_drive],
@@ -218,7 +291,13 @@ values=[[value_interval, value_duration],
 lines=[[[(72,0), (72,160)], [(155,0), (155,160)], [(210,0), (210,160)]
         ,[(0,160), (320,160)]], [], []]
 
-pygame.draw.line(screen, (0,200,200), (50,0), (50,220))
+
+#Camera initialization
+if not DEBUG:
+  camera = picamera.PiCamera()
+  atexit.register(camera.close)
+  camera.resolution = (320, 240)
+
 
 #import ipdb; ipdb.set_trace()
 continuer = 1
@@ -234,9 +313,19 @@ while continuer:
       pos = pygame.mouse.get_pos()
       for b in buttons[current_screen]:
         if b.selected(pos): break
-      print pos
 
   screen.fill(0)
+  if not DEBUG:
+    if current_screen == 1:
+      stream = io.BytesIO() # Capture into in-memory stream
+      camera.capture(stream, use_video_port=True, format='raw')
+      stream.seek(0)
+      stream.readinto(yuv)  # stream -> YUV buffer
+      stream.close()
+      yuv2rgb.convert(yuv, rgb, 320, 240)
+      img = pygame.image.frombuffer(rgb[0:(320 * 240 * 3)], (320, 240), 'RGB')
+
+      screen.blit(img, 0, 0)
   
   for l in labels[current_screen]:
     screen.blit(l[0], l[1])
