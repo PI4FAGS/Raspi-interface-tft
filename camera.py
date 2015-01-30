@@ -115,15 +115,19 @@ class GetOutOfLoop( Exception ):
     pass
 
 class Recorder:
-  def __init__(self, interval, duration):
+  def __init__(self, interval, duration, dir_name):
     self.interval = interval
     self.duration = duration
+    self.dir_name = dir_name
     self.nb_photos = int(duration.total_seconds() / interval.total_seconds())
     self.thread = None
     self.stop = False
   
   def record(self):
-    print 'uh'
+    if not DEBUG:
+      global camera
+      camera.capture_continuous(dir_name + '/img{timestamp:%Y-%m-%d-%H-%M}.jpg')
+    print 'CHEERS'
     begining = datetime.datetime.now()
     current_time = begining
     time_next_photo = current_time + self.interval
@@ -134,7 +138,6 @@ class Recorder:
     
     value_recording_nbpic = (font.render(str(current_index) + "/" + str(self.nb_photos), 1, (255,255,255)), (80,30))
     values[2][1] = value_recording_nbpic
-    print 'change'
     try:
       while current_index < self.nb_photos:
         while current_time < time_next_photo:
@@ -142,7 +145,9 @@ class Recorder:
             raise GetOutOfLoop  
           time.sleep(1)
           current_time = datetime.datetime.now()
-        print 'uh'
+        if not DEBUG:
+          camera.capture_continuous(dir_name + '/img{timestamp:%Y-%m-%d-%H-%M}.jpg')
+        print 'CHEERS'
         current_index += 1
         time_next_photo = begining + (self.interval * current_index)
         value_recording_nbpic = (font.render(str(current_index) + "/" + str(self.nb_photos), 1, (255,255,255)), (80,30))
@@ -213,12 +218,13 @@ def start_recording():
   global current_screen, settings, recorder
   current_screen = 2
   dt = datetime.datetime.now()
-  os.makedirs(dt.strftime('%a-%d-%b_%X'))
+  dir_name = dt.strftime('%a-%d-%b_%X')
+  os.makedirs(dir_name)
   tl_interval = settings.dstr_to_timedelta(settings.interval)
   tl_duration = settings.dstr_to_timedelta(settings.duration)
   if recorder is not None:
     recorder.stop_recording()
-  recorder = Recorder(tl_interval, tl_duration)
+  recorder = Recorder(tl_interval, tl_duration, dir_name)
   t = threading.Thread(target=recorder.record)
   recorder.thread = t
   t.start()
