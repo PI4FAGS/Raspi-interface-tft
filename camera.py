@@ -1,12 +1,14 @@
 DEBUG = True
 import pygame
 import os
+import io
 import json
 import datetime
 import time
 import atexit
 import threading
 if not DEBUG:
+  import yuv2rgb
   import picamera
 from pygame.locals import *
 
@@ -17,19 +19,21 @@ class Settings:
     self.push_to_drive = False
 
   def load(self):
-    with open('tl_settings.json', 'r') as f:
-      old = json.loads(f.read())
-      self.interval = old['interval']
-      self.duration = old['duration']
-      self.push_to_drive = old['push_to_drive']
-    print old
+    try:
+      with open('tl_settings.json', 'r') as f:
+        old = json.loads(f.read())
+        self.interval = old['interval']
+        self.duration = old['duration']
+        self.push_to_drive = old['push_to_drive']
+    except:
+      pass
 
   def save(self):
     with open('tl_settings.json', 'w') as f:
       f.write(json.dumps({'interval': self.interval, 'duration': self.duration, 'push_to_drive': self.push_to_drive}))
 
   def get_next_interval(self, value):
-    intervals = ['5s', '10s', '15s', '30s', '1m', '5m', '10m', '15m', '30m', '1h', '2h', '5h']
+    intervals = ['1s', '2s', '5s', '10s', '15s', '30s', '1m', '5m', '10m', '15m', '30m', '1h', '2h', '5h']
     if value == -1:
       intervals.reverse()
     for k, i in enumerate(intervals):
@@ -126,7 +130,7 @@ class Recorder:
   def record(self):
     if not DEBUG:
       global camera
-      camera.capture_continuous(dir_name + '/img{timestamp:%Y-%m-%d-%H-%M}.jpg')
+      camera.capture(self.dir_name + '/' + '%05d' % 1 + '.jpg')
     print 'CHEERS'
     begining = datetime.datetime.now()
     current_time = begining
@@ -146,7 +150,7 @@ class Recorder:
           time.sleep(1)
           current_time = datetime.datetime.now()
         if not DEBUG:
-          camera.capture_continuous(dir_name + '/img{timestamp:%Y-%m-%d-%H-%M}.jpg')
+          camera.capture(dir_name + '/' + '%05d' % current_index + '.jpg')
         print 'CHEERS'
         current_index += 1
         time_next_photo = begining + (self.interval * current_index)
@@ -303,9 +307,11 @@ if not DEBUG:
   camera = picamera.PiCamera()
   atexit.register(camera.close)
   camera.resolution = (320, 240)
+  camera.rotation = 180
+  rgb = bytearray(320 * 240 * 3)
+  yuv = bytearray(320 * 240 * 3 / 2)
 
 
-#import ipdb; ipdb.set_trace()
 continuer = 1
 #Boucle infinie
 while continuer:
@@ -331,7 +337,7 @@ while continuer:
       yuv2rgb.convert(yuv, rgb, 320, 240)
       img = pygame.image.frombuffer(rgb[0:(320 * 240 * 3)], (320, 240), 'RGB')
 
-      screen.blit(img, 0, 0)
+      screen.blit(img, (0, 0))
   
   for l in labels[current_screen]:
     screen.blit(l[0], l[1])
