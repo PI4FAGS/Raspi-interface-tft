@@ -129,8 +129,10 @@ class Recorder:
   
   def record(self):
     if not DEBUG:
-      global camera
-      camera.capture(self.dir_name + '/' + '%05d' % 1 + '.jpg')
+      global camera, last_picture_path
+      pic_name = self.dir_name + '/' + '%05d' % 1 + '.jpg'
+      camera.capture(pic_name, thumbnail=None)
+      last_picture_path = pic_name
     print 'CHEERS'
     begining = datetime.datetime.now()
     current_time = begining
@@ -150,7 +152,9 @@ class Recorder:
           time.sleep(1)
           current_time = datetime.datetime.now()
         if not DEBUG:
-          camera.capture(dir_name + '/' + '%05d' % current_index + '.jpg')
+          pic_name = dir_name + '/' + '%05d' % current_index + '.jpg'
+          camera.capture(pic_name, thumbnail=None)
+          last_picture_path = pic_name
         print 'CHEERS'
         current_index += 1
         time_next_photo = begining + (self.interval * current_index)
@@ -232,9 +236,15 @@ def start_recording():
   t = threading.Thread(target=recorder.record)
   recorder.thread = t
   t.start()
+  
+def close_app():
+  global continuer
+  continuer = False
 
 def stop_recording():
-  global current_screen, recorder
+  global current_screen, recorder, scaled
+  scaled = None
+  
   current_screen = 1
   recorder.stop_recording()
 
@@ -269,8 +279,9 @@ buttons = [[Button((20,40,30,30), color=0, icon=Icon('up_arrow'), cb=change_inte
             Button((250,100,30,30), color=0, icon=Icon('load'), cb=load_settings),
             Button((180,165,124,70), color=0, icon=Icon('ok'), cb=validate_settings)],
            [Button((10,180,50,50), color=0, icon=Icon('play'), cb=start_recording), #preview buttons
-            Button((260,180,50,50), color=0, icon=Icon('settings'), cb=change_settings)],
-           [Button((10,180,50,50), color=0, icon=Icon('stop'), cb=stop_recording)]]
+            Button((260,180,50,50), color=0, icon=Icon('settings'), cb=change_settings),
+            Button((260,10,50,50), color=0, icon=Icon('exit'), cb=close_app)],
+           [Button((10,180,50,50), color=0, icon=Icon('stop'), cb=stop_recording)]] #recording buttons
             
 font = pygame.font.Font(None,25)
 label_interval = (font.render("interval", 1, (255,255,255)), (5,10))
@@ -310,6 +321,8 @@ if not DEBUG:
   camera.rotation = 180
   rgb = bytearray(320 * 240 * 3)
   yuv = bytearray(320 * 240 * 3 / 2)
+  last_picture_path = None
+  scaled = None
 
 
 continuer = 1
@@ -338,6 +351,13 @@ while continuer:
       img = pygame.image.frombuffer(rgb[0:(320 * 240 * 3)], (320, 240), 'RGB')
 
       screen.blit(img, (0, 0))
+  
+    if current_screen == 2:
+      if last_picture_path is not None and scaled is None:
+        img = pygame.image.load(last_picture_path)
+        scaled = pygame.transform.scale(img, (320,240))
+      if scaled is not None:
+        screen.blit(scaled,(0,0))
   
   for l in labels[current_screen]:
     screen.blit(l[0], l[1])
