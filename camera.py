@@ -129,10 +129,12 @@ class Recorder:
   
   def record(self):
     if not DEBUG:
-      global camera, last_picture_path
+      global camera, last_picture_path, scaled
       pic_name = self.dir_name + '/' + '%05d' % 1 + '.jpg'
       camera.capture(pic_name, thumbnail=None)
       last_picture_path = pic_name
+      scaled = None
+
     print 'CHEERS'
     begining = datetime.datetime.now()
     current_time = begining
@@ -152,9 +154,10 @@ class Recorder:
           time.sleep(1)
           current_time = datetime.datetime.now()
         if not DEBUG:
-          pic_name = dir_name + '/' + '%05d' % current_index + '.jpg'
+          pic_name = self.dir_name + '/' + '%05d' % current_index + '.jpg'
           camera.capture(pic_name, thumbnail=None)
           last_picture_path = pic_name
+          scaled = None
         print 'CHEERS'
         current_index += 1
         time_next_photo = begining + (self.interval * current_index)
